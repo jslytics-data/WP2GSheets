@@ -1,17 +1,17 @@
-WP2GSheets
-WP2GSheets is a Google Apps Script that fetches WordPress posts and inserts them into a Google Sheet. It supports custom fields, categories, tags, and author data, and includes auto-formatting options. It simplifies the process of transferring WordPress content to Google Sheets for reporting and analysis.
+# WP2GSheets
+*This is a Google Apps Script (GAS) library for fetching WordPress posts, pages, tags, categories, and users, and saving them to Google Sheets.* 
+
+## Getting Started
+
 
 Usage
 To use WP2GSheets, follow these steps:
-
-Open the Google Sheet where you want to insert your WordPress posts.
-Go to Tools > Script Editor.
-Copy and paste the contents of wp2gsheets.gs into the editor.
-Save the script and run the getWordpressPosts() function.
-Grant the necessary permissions.
-Check your sheet to see the WordPress posts inserted.
-Customization
-WP2GSheets supports custom fields, categories, tags, and author data. You can customize which fields are inserted into the sheet by modifying the fields array in wp2gsheets.gs. You can also customize the date range of posts fetched by modifying the after and before properties in the args object.
+1. Create a new Google Sheet by clicking on File > New > Google Sheets.
+2. Open the script editor by clicking on Tools > Script Editor, or create a new project from https://script.google.com/home
+3. Create new scripts for each file in the repo, and copy/paste the code
+4. Replace the siteDomain, spreadsheetId, and any other variables in each script
+4. Save the script by clicking on Save.
+5. In the script editor, click on the getAllWordPressData Script and hit Run
 
 Auto-formatting
 WP2GSheets includes auto-formatting options for certain fields. For example, the title field is formatted as a hyperlink to the post URL. You can customize the auto-formatting options by modifying the applyCustomFormatting() function in wp2gsheets.gs.
