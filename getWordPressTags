@@ -1,0 +1,97 @@
+/* 
+Fetches WordPress tags to Google Sheets
+Built by https://twitter.com/jspanom
+GitHub Repo: https://github.com/jslytics-data/WP2GSheets
+WordPress API Reference: https://developer.wordpress.org/rest-api/reference/tags/
+*/
+function getWordpressTags() {
+  const siteDomain = "techcrunch.com"; // WordPress site domain to pull tags from 
+  const limit = 50; // Maximum number of tags to fetch from the WordPress site. Add 0 to get all tags
+  const spreadsheetId = "1g4cKKqjduf3SxAiVXE3dNODD1o5bby_X4tJ1aiBWDoI"; // Set the ID of the Google Sheet where the WordPress tags data will be saved.
+  const sheetName = "WP - Tags"; // (Not recommended to change). Name of the sheet where the WordPress tags data will be saved.
+  const fields = ["id", "name", "link", "description","count"]; // Set the fields to retrieve from each tag. developer.wordpress.org/rest-api/reference/tags/
+  const args = {
+    orderby: "count", // Sort collection by object attribute. One of: id, count, description, name, slug, term_group
+    order: "desc", // Order sort attribute ascending or descending.
+    hide_empty: "false", // Whether to hide terms not assigned to any posts. Default: false
+    exclude: "", // Ensure result set excludes specific IDs.
+    include: "", // Limit result set to specific IDs.
+    post: "", // Limit result set to terms assigned to a specific post.
+    slug: "", // Limit result set to terms with one or more specific slugs.
+    include_slugs: "", // Limit result set to terms with one or more specific slugs.
+    search: "", // Limit results to those matching a string.
+    context: "view", // Scope under which the request is made (view, embed, edit)
+  };
+  
+  // Call the fetchWordPressTagsData function with the specified parameters.
+  fetchWordPressTagsData(siteDomain, spreadsheetId, sheetName, limit, fields, args);
+  autoSheetFormatting(spreadsheetId, sheetName);
+}
+
+function fetchWordPressTagsData(siteDomain, spreadsheetId, sheetName, limit, fields, args) {
+  const sheet = SpreadsheetApp.openById(spreadsheetId).getSheetByName(sheetName) || SpreadsheetApp.openById(spreadsheetId).insertSheet(sheetName);
+  sheet.clearContents();
+
+  let data = [];
+  let page = 1;
+  const perPage = 100;
+  let tagsCount = 0;
+
+  let url = buildTagsUrl(siteDomain, perPage, page, fields, args);
+
+  while (true) {
+    const response = UrlFetchApp.fetch(url);
+    const newData = JSON.parse(response.getContentText());
+    const filteredData = limit ? newData.slice(0, limit - tagsCount) : newData;
+    data = data.concat(filteredData);
+    tagsCount += filteredData.length;
+
+    if (newData.length < perPage || (limit && tagsCount >= limit)) {
+      break;
+    }
+
+    page++;
+    url = buildTagsUrl(siteDomain, perPage, page, fields, args);
+  }
+
+  const headers = fields.map(field => {
+    return `${field.charAt(0).toUpperCase()}${field.slice(1)}`;
+  });
+  const rows = data.map(tag => {
+    const row = fields.map(field => {
+      let fieldValue = tag[field];
+
+      if (Array.isArray(fieldValue)) {
+        return fieldValue.map(val => {
+          return val.toString();
+        }).join(", ");
+      } else if (field === 'meta' && typeof fieldValue === 'object') {
+        return JSON.stringify(fieldValue);
+      } else {
+        return fieldValue !== undefined && fieldValue !== null ? fieldValue.toString() : "";
+      }
+    });
+    return row;
+  });
+
+  if (headers.length > 0 && rows.length > 0) {
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    sheet.getRange(2, 1, rows.length, headers.length).setValues(rows);
+  }
+}
+
+function buildTagsUrl(siteDomain, perPage, page, fields, args) {
+  let url = `https://${siteDomain}/wp-json/wp/v2/tags?per_page=${perPage}&page=${page}`;
+
+  for (let key in args) {
+    if (args.hasOwnProperty(key) && args[key] !== "") {
+      url += `&${key}=${encodeURIComponent(args[key])}`;
+    }
+  }
+
+  if (fields.length > 0) {
+    url += `&_fields=${fields.join(",")}`;
+  }
+
+  return url;
+}

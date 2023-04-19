@@ -1,0 +1,38 @@
+//Applies Custom Formatting to the output sheets
+function autoSheetFormatting(spreadsheetId, sheetName) {
+  var sheet = SpreadsheetApp.openById(spreadsheetId).getSheetByName(sheetName);
+
+  // Freeze the first row and column
+  sheet.setFrozenRows(1);
+  sheet.setFrozenColumns(1);
+
+  // Auto-resize columns based on length of cell values
+  var lastColumn = sheet.getLastColumn();
+  var lastRow = sheet.getLastRow();
+  for (var i = 1; i <= lastColumn; i++) {
+    sheet.autoResizeColumn(i);
+  }
+
+  // Apply formatting to first row only
+  var headerRow = sheet.getRange(1, 1, 1, lastColumn);
+  headerRow.setFontWeight("bold");
+  headerRow.setBackground("#cccccc");
+
+  // Apply formatting to subsequent rows of populated data
+  if (lastRow > 1) {
+    var dataRows = sheet.getRange(2, 1, lastRow - 1, lastColumn);
+    dataRows.setBackground("#eeeeee");
+  }
+
+  // Remove formatting from columns after last column
+  if (lastColumn < sheet.getMaxColumns()) {
+    var excessColumns = sheet.getRange(1, lastColumn + 1, lastRow, sheet.getMaxColumns() - lastColumn);
+    excessColumns.setBackground(null);
+  }
+
+  // Remove formatting from rows after last row
+  if (lastRow < sheet.getMaxRows()) {
+    var excessRows = sheet.getRange(lastRow + 1, 1, sheet.getMaxRows() - lastRow, lastColumn);
+    excessRows.setBackground(null);
+  }
+}

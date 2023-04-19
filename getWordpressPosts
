@@ -1,12 +1,18 @@
+/* 
+Fetches WordPress posts to Google Sheets
+Built by https://twitter.com/jspanom
+GitHub Repo: https://github.com/jslytics-data/WP2GSheets
+WordPress API Reference: https://developer.wordpress.org/rest-api/reference/posts/
+*/
 function getWordpressPosts() {
-  const siteDomain = "yogasteya.com"; // WordPress site domain to pull posts from 
-  const limit = 20; // Maximum number of posts to fetch from the WordPress site. Add 0 to get all posts
+  const siteDomain = "techcrunch.com"; // WordPress site domain to pull posts from 
+  const limit = 50; // Maximum number of posts to fetch from the WordPress site. Add 0 to get all posts
   const spreadsheetId = "1g4cKKqjduf3SxAiVXE3dNODD1o5bby_X4tJ1aiBWDoI"; // Set the ID of the Google Sheet where the WordPress posts data will be saved.
   const sheetName = "WP - Posts"; // (Not recommended to change). Name of the sheet where the WordPress posts data will be saved.
   const fields = ["id","date","title","link"]; // Set the fields to retrieve from each post. developer.wordpress.org/rest-api/reference/posts/
   const args = {
     orderby: "date", // Sort collection by object attribute.One of: author, date, id, include, modified, parent, relevance, slug, include_slugs, title
-    order: "asc", // Order sort attribute ascending or descending.
+    order: "desc", // Order sort attribute ascending or descending.
     after: "2000-01-01T00:00:00Z", // Limit response to posts published after a given ISO8601 compliant date.
     before: "", // Limit response to posts published before a given ISO8601 compliant date.
     search: "", // Limit results to those matching a string.
@@ -38,94 +44,79 @@ function fetchWordPressPostsData(siteDomain, spreadsheetId, sheetName, limit, fi
   let page = 1;
   const perPage = 100;
   let postsCount = 0;
-  
-  let url = buildUrl(siteDomain, perPage, page, fields, args);
+
+  let url = buildPostsUrl(siteDomain, perPage, page, fields, args);
 
   while (true) {
     const response = UrlFetchApp.fetch(url);
     const newData = JSON.parse(response.getContentText());
     const filteredData = limit ? newData.slice(0, limit - postsCount) : newData;
     data = data.concat(filteredData);
-postsCount += filteredData.length;
+    postsCount += filteredData.length;
 
-if (newData.length < perPage || (limit && postsCount >= limit)) {
-  break;
-}
+    if (newData.length < perPage || (limit && postsCount >= limit)) {
+      break;
+    }
 
-page++;
-url = buildUrl(siteDomain, perPage, page, fields, args);
-}
-
-const headers = fields.map(function(field) {
-return field.charAt(0).toUpperCase() + field.slice(1);
-});
-const rows = data.map(function(post) {
-const row = fields.map(function(field) {
-  let fieldValue = post[field];
-  
-  fieldValue = applyCustomFormatting(field, fieldValue, post, siteDomain);
-  
-  if (Array.isArray(fieldValue)) {
-    return fieldValue.map(function(val) {
-      return val.toString();
-    }).join(", ");
-  } else if (typeof fieldValue === 'object' && fieldValue.hasOwnProperty('rendered')) {
-    return fieldValue.rendered;
-  } else {
-    return fieldValue !== undefined && fieldValue !== null ? fieldValue.toString() : "";
+    page++;
+    url = buildPostsUrl(siteDomain, perPage, page, fields, args);
   }
-});
-return row;
-});
 
-if (headers.length > 0 && rows.length > 0) {
-sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-sheet.getRange(2, 1, rows.length, headers.length).setValues(rows);
-}
-}
-
-function buildUrl(siteDomain, perPage, page, fields, args) {
-let url = "https://" + siteDomain + '/wp-json/wp/v2/posts?per_page=' + perPage + '&page=' + page;
-
-for (let key in args) {
-if (args.hasOwnProperty(key) && args[key] !== "") {
-url += '&' + key + '=' + encodeURIComponent(args[key]);
-}
-}
-
-if (fields.length > 0) {
-url += '&_fields=' + fields.join(",") + ',link';
-}
-
-return url;
-}
-
-function applyCustomFormatting(field, fieldValue, post, siteDomain) {
-if (field === 'title' && post.hasOwnProperty('link')) {
-const titleText = (typeof fieldValue === 'object' && fieldValue.hasOwnProperty('rendered')) ? fieldValue.rendered : fieldValue;
-const postLink = post['link'];
-return '=HYPERLINK("' + postLink + '", "' + titleText + '")';
-}
-
-if (field === 'id') {
-const editUrl = "https://" + siteDomain + "/wp-admin/post.php?post=" + fieldValue + "&action=edit";
-return '=HYPERLINK("' + editUrl + '", "' + fieldValue + '")';
-}
-
-if (field === 'tags' && Array.isArray(fieldValue)) {
-const tagIds = fieldValue.map(function(tagId) {
-return parseInt(tagId);
-});
-if (tagIds.length > 0) {
-  const tagsUrl = "https://" + siteDomain + "/wp-json/wp/v2/tags?include=" + tagIds.join(",");
-  const tagsResponse = UrlFetchApp.fetch(tagsUrl);
-  const tagsData = JSON.parse(tagsResponse.getContentText());
-  const tagNames = tagsData.map(function(tag) {
-    return tag.name;
+  const headers = fields.map(field => {
+    return `${field.charAt(0).toUpperCase()}${field.slice(1)}`;
   });
-  return tagNames.join(", ");
-}
+  const rows = data.map(post => {
+    const row = fields.map(field => {
+      let fieldValue = post[field];
+
+      fieldValue = applyCustomPostsFormatting(field, fieldValue, post, siteDomain);
+
+      if (Array.isArray(fieldValue)) {
+        return fieldValue.map(val => {
+          return val.toString();
+        }).join(", ");
+      } else if (typeof fieldValue === 'object' && fieldValue.hasOwnProperty('rendered')) {
+        return fieldValue.rendered;
+      } else {
+        return fieldValue !== undefined && fieldValue !== null ? fieldValue.toString() : "";
+      }
+    });
+    return row;
+  });
+
+  if (headers.length > 0 && rows.length > 0) {
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    sheet.getRange(2, 1, rows.length, headers.length).setValues(rows);
+  }
 }
 
-return fieldValue;
+function buildPostsUrl(siteDomain, perPage, page, fields, args) {
+  let url = `https://${siteDomain}/wp-json/wp/v2/posts?per_page=${perPage}&page=${page}`;
+
+  for (let key in args) {
+    if (args.hasOwnProperty(key) && args[key] !== "") {
+      url += `&${key}=${encodeURIComponent(args[key])}`;
+    }
+  }
+
+  if (fields.length > 0) {
+    url += `&_fields=${fields.join(",")},link`;
+  }
+
+  return url;
+}
+
+function applyCustomPostsFormatting(field, fieldValue, post, siteDomain) {
+  if (field === 'title' && post.hasOwnProperty('link')) {
+    const titleText = (typeof fieldValue === 'object' && fieldValue.hasOwnProperty('rendered')) ? fieldValue.rendered : fieldValue;
+    const postLink = post['link'];
+    return `=HYPERLINK("${postLink}", "${titleText}")`;
+  }
+
+  if (field === 'id') {
+    const editUrl = `https://${siteDomain}/wp-admin/post.php?post=${fieldValue}&action=edit`;
+    return `=HYPERLINK("${editUrl}", "${fieldValue}")`;
+  }
+
+  return fieldValue;
 }

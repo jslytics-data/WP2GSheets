@@ -1,0 +1,18 @@
+function fetchAllWordPressData() {
+
+  // Fetch WordPress users data
+  getWordpressUsers();
+
+  // Fetch WordPress tags data
+  getWordpressTags();
+
+  // Fetch WordPress categories data
+  getWordpressCategories();
+
+  // Fetch WordPress pages data
+  getWordpressPages();
+
+  // Fetch WordPress posts data
+  getWordpressPosts();
+
+}
